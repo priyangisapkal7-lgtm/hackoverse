@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PathFinder AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/feather-icons"></script>
+
+<style>
+body{font-family:Poppins;}
+.card{
+  border-radius:24px;
+  background:rgba(255,255,255,0.85);
+  backdrop-filter:blur(8px);
+  border:none;
+}
+.glow{box-shadow:0 15px 40px rgba(0,0,0,0.08);}
+.fadein{animation:fade 0.7s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+</style>
+</head>
+
+<body class="bg-gradient-to-br from-indigo-50 to-cyan-100 fadein">
+
+<div class="container-fluid p-4">
+<div class="row g-4">
+
+<div class="col-lg-6">
+<div class="card glow p-4 h-100">
+<h3 class="fw-semibold"><i data-feather="map"></i> PathFinder AI</h3>
+<p class="text-muted small">
+Real-time AI powered accessibility intelligence for smart urban navigation.
+</p>
+<div id="map" class="rounded-4 mt-3" style="height:280px;"></div>
+
+
+<p class="mt-3 fs-5">Current Area Status:
+<span id="status" class="fw-semibold text-success">Accessible</span>
+</p>
+</div>
+</div>
+
+<div class="col-lg-3">
+<div class="card glow p-4 h-100">
+<h5><i data-feather="sliders"></i> Accessibility Tools</h5>
+<div class="bg-light p-2 rounded small mt-2">
+Profile:
+<select class="ms-2">
+<option>Wheelchair</option><option>Visual</option><option>Elderly</option>
+</select>
+</div>
+<button onclick="openCamera()" class="btn btn-primary w-100 mt-3">
+  Upload 5-sec Video
+</button>
+
+
+<button onclick="alert('Voice guidance activated')" class="btn btn-success w-100 mt-2">Voice Navigation</button>
+<a href="report.html" target="_blank" class="btn btn-danger w-100 mt-2">
+  Report Barrier
+</a>
+
+</div>
+</div>
+
+
+
+<div class="col-lg-3">
+<div class="card glow p-4 h-100">
+<h5><i data-feather="activity"></i> How It Works</h5>
+<ul class="small text-muted">
+<li>Upload street videos</li>
+<li>AI detects obstacles</li>
+<li>Map updates instantly</li>
+<li>Voice alerts guide users</li>
+</ul>
+<h6 class="mt-3">Legend</h6>
+<p class="text-success">● Accessible</p>
+<p class="text-warning">● Partial</p>
+<p class="text-danger">● Blocked</p>
+</div>
+</div>
+
+<!-- Camera Recorder -->
+<div id="cameraBox" class="card glow p-3 mt-4 d-none">
+  <h5>Record Accessibility Issue (5 sec)</h5>
+  <video id="cameraPreview" autoplay muted playsinline class="w-100 rounded"></video>
+
+  <button onclick="startRecording()" class="btn btn-danger mt-2 w-100">
+    Record 5-sec Video
+  </button>
+  <select id="obstacleType" class="form-select mt-2">
+  <option value="none">No Obstacle</option>
+  <option value="ramp_blocked">Ramp Blocked</option>
+  <option value="stairs">Only Stairs</option>
+  <option value="broken_path">Broken Sidewalk</option>
+  <option value="narrow_path">Narrow Path</option>
+</select>
+
+</div>
+
+<div class="col-lg-12">
+<div class="card glow p-4">
+<h5><i data-feather="navigation"></i> Route Planner</h5>
+<div class="row">
+<div class="col-md-5"><input class="form-control" placeholder="Start Location"></div>
+<div class="col-md-5"><input class="form-control mt-2 mt-md-0" placeholder="Destination"></div>
+<div class="col-md-2"><button class="btn btn-dark w-100 mt-2 mt-md-0">Find Route</button></div>
+</div>
+</div>
+</div>
+
+
+<div class="col-lg-3">
+<div class="card glow p-4 h-100">
+<h5><i data-feather="alert-circle"></i> Recent Barrier Alerts</h5>
+<ul class="small text-muted mt-2">
+  <li>⛔ Ramp blocked near City Hospital</li>
+  <li>⚠ Sidewalk broken at Market Street</li>
+  <li>🟡 Footpath narrowed at Bus Stand</li>
+  <li>⛔ Elevator out of service – Metro Gate 2</li>
+</ul>
+</div>
+</div>
+
+
+</div>
+</div>
+
+
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+
+<script>
+let mediaStream;
+let mediaRecorder;
+let recordedChunks = [];
+
+/* ---------- OPEN CAMERA ---------- */
+async function openCamera() {
+  document.getElementById("cameraBox").classList.remove("d-none");
+
+  mediaStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" },
+    audio: false
+  });
+
+  document.getElementById("cameraPreview").srcObject = mediaStream;
+}
+
+/* ---------- RECORD 5 SECONDS ---------- */
+function startRecording() {
+  recordedChunks = [];
+
+  mediaRecorder = new MediaRecorder(mediaStream, {
+    mimeType: "video/webm"
+  });
+
+  mediaRecorder.ondataavailable = event => {
+    if (event.data.size > 0) recordedChunks.push(event.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    const videoBlob = new Blob(recordedChunks, { type: "video/webm" });
+    uploadRecordedVideo(videoBlob);
+  };
+
+  mediaRecorder.start();
+
+  setTimeout(() => {
+    mediaRecorder.stop();
+    stopCamera();
+  }, 5000);
+}
+
+
+function inferAccessibility(obstacleCount) {
+  if (obstacleCount === 0) return "Accessible";
+  if (obstacleCount <= 2) return "Partially Accessible";
+  return "Not Accessible";
+}
+
+
+/* ---------- STOP CAMERA ---------- */
+function stopCamera() {
+  mediaStream.getTracks().forEach(track => track.stop());
+}
+
+/* ---------- UPLOAD TO FIREBASE ---------- */
+function uploadRecordedVideo(blob) {
+  const fileName = `videos/access_${Date.now()}.webm`;
+  const storageRef = firebase.storage().ref(fileName);
+  const uploadTask = storageRef.put(blob);
+
+  uploadTask.on(
+    "state_changed",
+    null,
+    error => alert("❌ Upload failed"),
+    () => {
+      alert("✅ Video recorded & analyzed");
+analyzeObstacle();
+
+    }
+  );
+}
+
+function analyzeObstacle() {
+  const obstacle = document.getElementById("obstacleType").value;
+
+  if (obstacle === "none") {
+    status.innerText = "Accessible";
+    status.className = "fw-semibold text-success";
+  } 
+  else if (obstacle === "narrow_path") {
+    partial();
+  } 
+  else {
+    blocked();
+  }
+
+  getUserLocationAndMark(obstacle);
+}
+
+function getUserLocationAndMark(obstacle) {
+  navigator.geolocation.getCurrentPosition(position => {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+
+    const color =
+      obstacle === "none" ? "green" :
+      obstacle === "narrow_path" ? "orange" :
+      "red";
+
+    const marker = L.circleMarker([lat, lng], {
+      radius: 10,
+      color: color,
+      fillOpacity: 0.8
+    }).addTo(map);
+
+    marker.bindPopup(`Obstacle: ${obstacle}`);
+  });
+}
+
+</script>
+
+
+
+<script>
+/* ---------- FIREBASE + MAP ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDG2pClTIU4iH4WCOKNJuw8C_LYRcWz3Vs",
+  authDomain: "pathfinder-ai-102ea.firebaseapp.com",
+  projectId: "pathfinder-ai-102ea",
+  storageBucket: "pathfinder-ai-102ea.appspot.com",
+  messagingSenderId: "236974990228",
+  appId: "1:236974990228:web:4b22cb09beee0797286581"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* Initialize map inside heatmap box */
+const map = L.map("map").setView([18.467, 73.883], 14);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  attribution: "© OpenStreetMap contributors"
+}).addTo(map);
+
+/* Read accessibility reports */
+db.collection("accessibility_reports").onSnapshot(snapshot => {
+  snapshot.forEach(doc => {
+    const data = doc.data();
+
+    const marker = L.marker([data.lat, data.lng]).addTo(map);
+    marker.bindPopup(`
+      <b>Obstacle:</b> ${data.obstacle}<br>
+      <b>Reported:</b> ${data.timestamp.toDate()}
+    `);
+  });
+});
+
+/* ---------- UI FUNCTIONS ---------- */
+feather.replace();
+
+function partial(){
+  status.innerText="Partially Accessible";
+  status.className="fw-semibold text-warning";
+}
+function blocked(){
+  status.innerText="Not Accessible";
+  status.className="fw-semibold text-danger";
+}
+</script>
+
+
+
+</body>
+</html>

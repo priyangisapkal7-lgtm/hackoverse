@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PathFinder AI – Report Issue</title>
+  <meta charset="utf-8" />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #eef2f3, #d9e4f5);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 420px;
+      width: 100%;
+    }
+
+    h1 {
+      margin-bottom: 6px;
+      color: #2c3e50;
+    }
+
+    .subtitle {
+      color: #555;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+      text-align: left;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: #4f46e5;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #4338ca;
+    }
+
+    .note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #666;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>PathFinder AI</h1>
+    <p class="subtitle">
+      Report real-time accessibility barriers to help others navigate safely.
+    </p>
+
+    <div class="card">
+      <label>Accessibility Issue</label>
+      <select id="obstacle">
+        <option value="STAIRS_PRESENT">Stairs Present</option>
+        <option value="PATH_BLOCKED">Path Blocked</option>
+      </select>
+
+      <button onclick="submitReport()">Submit Report</button>
+
+      <p class="note">
+        📍 Location is captured automatically. Please allow location access.
+      </p>
+    </div>
+  </div>
+
+  <!-- Firebase COMPAT SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDG2pClTIU4iH4WCOKNJuw8C_LYRcWz3Vs",
+      authDomain: "pathfinder-ai-102ea.firebaseapp.com",
+      projectId: "pathfinder-ai-102ea",
+      storageBucket: "pathfinder-ai-102ea.appspot.com",
+      messagingSenderId: "236974990228",
+      appId: "1:236974990228:web:4b22cb09beee0797286581"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let lat = 0;
+    let lng = 0;
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      },
+      () => {
+        alert("Location access is required to submit a report.");
+      }
+    );
+
+    function submitReport() {
+      if (lat === 0 || lng === 0) {
+        alert("Location not available yet. Please allow location access.");
+        return;
+      }
+
+      db.collection("accessibility_reports").add({
+        lat: lat,
+        lng: lng,
+        obstacle: document.getElementById("obstacle").value,
+        timestamp: new Date()
+      }).then(() => {
+        alert("Report submitted successfully!");
+      });
+    }
+  </script>
+</body>
+</html>
